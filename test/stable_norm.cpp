@@ -21,7 +21,6 @@ template<typename MatrixType> void stable_norm(const MatrixType& m)
   */
   using std::sqrt;
   using std::abs;
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef typename NumTraits<Scalar>::Real RealScalar;
   
@@ -221,7 +220,7 @@ void test_hypot()
   VERIFY((numext::isnan)(numext::hypot(a,nan)));
 }
 
-void test_stable_norm()
+EIGEN_DECLARE_TEST(stable_norm)
 {
   for(int i = 0; i < g_repeat; i++) {
     CALL_SUBTEST_3( test_hypot<double>() );

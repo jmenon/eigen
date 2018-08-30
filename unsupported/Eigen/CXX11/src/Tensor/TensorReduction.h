@@ -334,12 +334,12 @@ struct OuterReducer {
 };
 
 
-#if defined(EIGEN_USE_GPU) && defined(EIGEN_CUDACC)
+#if defined(EIGEN_USE_GPU) && (defined(EIGEN_GPUCC))
 template <int B, int N, typename S, typename R, typename I>
 __global__ void FullReductionKernel(R, const S, I, typename S::CoeffReturnType*, unsigned int*);
 
 
-#ifdef EIGEN_HAS_CUDA_FP16
+#if defined(EIGEN_HAS_GPU_FP16)
 template <typename S, typename R, typename I>
 __global__ void ReductionInitFullReduxKernelHalfFloat(R, const S, I, half2*);
 template <int B, int N, typename S, typename R, typename I>
@@ -407,11 +407,12 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
   static const bool InputPacketAccess = TensorEvaluator<ArgType, Device>::PacketAccess;
   typedef typename internal::remove_const<typename XprType::CoeffReturnType>::type CoeffReturnType;
   typedef typename PacketType<CoeffReturnType, Device>::type PacketReturnType;
-  static const int PacketSize = internal::unpacket_traits<PacketReturnType>::size;
+  static const int PacketSize = PacketType<CoeffReturnType, Device>::size;
 
   enum {
     IsAligned = false,
     PacketAccess = Self::InputPacketAccess && Op::PacketAccess,
+    BlockAccess = false,
     Layout = TensorEvaluator<ArgType, Device>::Layout,
     CoordAccess = false,  // to be implemented
     RawAccess = false
@@ -495,7 +496,14 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
 
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE const Dimensions& dimensions() const { return m_dimensions; }
 
-  EIGEN_STRONG_INLINE EIGEN_DEVICE_FUNC bool evalSubExprsIfNeeded(typename MakePointer_<CoeffReturnType>::Type data) {
+  EIGEN_STRONG_INLINE
+    #if !defined(EIGEN_HIPCC)
+    // Marking this as EIGEN_DEVICE_FUNC for HIPCC requires also doing the same for all the functions
+    // being called within here, which then leads to proliferation of EIGEN_DEVICE_FUNC markings, one
+    // of which will eventually result in an NVCC error
+    EIGEN_DEVICE_FUNC
+    #endif
+    bool evalSubExprsIfNeeded(typename MakePointer_<CoeffReturnType>::Type data) {
     m_impl.evalSubExprsIfNeeded(NULL);
 
     // Use the FullReducer if possible.
@@ -505,7 +513,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
          !RunningOnGPU))) {
       bool need_assign = false;
       if (!data) {
-        m_result = static_cast<CoeffReturnType*>(m_device.allocate(sizeof(CoeffReturnType)));
+        m_result = static_cast<CoeffReturnType*>(m_device.allocate_temp(sizeof(CoeffReturnType)));
         data = m_result;
         need_assign = true;
       }
@@ -517,7 +525,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
       const Index num_values_to_reduce = internal::array_prod(m_reducedDims);
       const Index num_coeffs_to_preserve = internal::array_prod(m_dimensions);
       if (!data) {
-        data = static_cast<CoeffReturnType*>(m_device.allocate(sizeof(CoeffReturnType) * num_coeffs_to_preserve));
+        data = static_cast<CoeffReturnType*>(m_device.allocate_temp(sizeof(CoeffReturnType) * num_coeffs_to_preserve));
         m_result = data;
       }
       Op reducer(m_reducer);
@@ -541,7 +549,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
         const Index num_coeffs_to_preserve = internal::array_prod(m_dimensions);
         if (!data) {
           if (num_coeffs_to_preserve < 1024 && num_values_to_reduce > num_coeffs_to_preserve && num_values_to_reduce > 128) {
-            data = static_cast<CoeffReturnType*>(m_device.allocate(sizeof(CoeffReturnType) * num_coeffs_to_preserve));
+            data = static_cast<CoeffReturnType*>(m_device.allocate_temp(sizeof(CoeffReturnType) * num_coeffs_to_preserve));
             m_result = data;
           }
           else {
@@ -551,7 +559,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
         Op reducer(m_reducer);
         if (internal::InnerReducer<Self, Op, Device>::run(*this, reducer, m_device, data, num_values_to_reduce, num_coeffs_to_preserve)) {
           if (m_result) {
-            m_device.deallocate(m_result);
+            m_device.deallocate_temp(m_result);
             m_result = NULL;
           }
           return true;
@@ -574,7 +582,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
         const Index num_coeffs_to_preserve = internal::array_prod(m_dimensions);
         if (!data) {
           if (num_coeffs_to_preserve < 1024 && num_values_to_reduce > num_coeffs_to_preserve && num_values_to_reduce > 32) {
-            data = static_cast<CoeffReturnType*>(m_device.allocate(sizeof(CoeffReturnType) * num_coeffs_to_preserve));
+            data = static_cast<CoeffReturnType*>(m_device.allocate_temp(sizeof(CoeffReturnType) * num_coeffs_to_preserve));
             m_result = data;
           }
           else {
@@ -584,7 +592,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
         Op reducer(m_reducer);
         if (internal::OuterReducer<Self, Op, Device>::run(*this, reducer, m_device, data, num_values_to_reduce, num_coeffs_to_preserve)) {
           if (m_result) {
-            m_device.deallocate(m_result);
+            m_device.deallocate_temp(m_result);
             m_result = NULL;
           }
           return true;
@@ -599,7 +607,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE void cleanup() {
     m_impl.cleanup();
     if (m_result) {
-      m_device.deallocate(m_result);
+      m_device.deallocate_temp(m_result);
       m_result = NULL;
     }
   }
@@ -694,9 +702,9 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
 #ifdef EIGEN_USE_THREADS
   template <typename S, typename O, bool V> friend struct internal::FullReducerShard;
 #endif
-#if defined(EIGEN_USE_GPU) && defined(EIGEN_CUDACC)
+#if defined(EIGEN_USE_GPU) && (defined(EIGEN_GPUCC))
   template <int B, int N, typename S, typename R, typename I> KERNEL_FRIEND void internal::FullReductionKernel(R, const S, I, typename S::CoeffReturnType*, unsigned int*);
-#ifdef EIGEN_HAS_CUDA_FP16
+#if defined(EIGEN_HAS_GPU_FP16)
   template <typename S, typename R, typename I> KERNEL_FRIEND void internal::ReductionInitFullReduxKernelHalfFloat(R, const S, I, half2*);
   template <int B, int N, typename S, typename R, typename I> KERNEL_FRIEND void internal::FullReductionKernelHalfFloat(R, const S, I, half*, half2*);
   template <int NPT, typename S, typename R, typename I> KERNEL_FRIEND void internal::InnerReductionKernelHalfFloat(R, const S, I, I, half*);
@@ -781,7 +789,7 @@ struct TensorEvaluator<const TensorReductionOp<Op, Dims, ArgType, MakePointer_>,
   Op m_reducer;
 
   // For full reductions
-#if defined(EIGEN_USE_GPU) && defined(EIGEN_CUDACC)
+#if defined(EIGEN_USE_GPU) && (defined(EIGEN_GPUCC))
   static const bool RunningOnGPU = internal::is_same<Device, Eigen::GpuDevice>::value;
   static const bool RunningOnSycl = false;
 #elif defined(EIGEN_USE_SYCL)

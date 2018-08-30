@@ -14,7 +14,6 @@
 using namespace std;
 template<typename MatrixType> void permutationmatrices(const MatrixType& m)
 {
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   enum { Rows = MatrixType::RowsAtCompileTime, Cols = MatrixType::ColsAtCompileTime,
          Options = MatrixType::Options };
@@ -153,7 +152,7 @@ void bug890()
   VERIFY_IS_APPROX(v1, (P.inverse() * rhs).eval());
 }
 
-void test_permutationmatrices()
+EIGEN_DECLARE_TEST(permutationmatrices)
 {
   for(int i = 0; i < g_repeat; i++) {
     CALL_SUBTEST_1( permutationmatrices(Matrix<float, 1, 1>()) );

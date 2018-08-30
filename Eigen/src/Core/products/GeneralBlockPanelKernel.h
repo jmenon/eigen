@@ -972,7 +972,7 @@ void gebp_kernel<LhsScalar,RhsScalar,Index,DataMapper,mr,nr,ConjugateLhs,Conjuga
               EIGEN_ASM_COMMENT("begin step of gebp micro kernel 3pX4"); \
               EIGEN_ASM_COMMENT("Note: these asm comments work around bug 935!"); \
               internal::prefetch(blA+(3*K+16)*LhsProgress); \
-              if (EIGEN_ARCH_ARM) { internal::prefetch(blB+(4*K+16)*RhsProgress); } /* Bug 953 */ \
+              if (EIGEN_ARCH_ARM || EIGEN_ARCH_MIPS) { internal::prefetch(blB+(4*K+16)*RhsProgress); } /* Bug 953 */ \
               traits.loadLhs(&blA[(0+3*K)*LhsProgress], A0);  \
               traits.loadLhs(&blA[(1+3*K)*LhsProgress], A1);  \
               traits.loadLhs(&blA[(2+3*K)*LhsProgress], A2);  \
@@ -1526,10 +1526,10 @@ void gebp_kernel<LhsScalar,RhsScalar,Index,DataMapper,mr,nr,ConjugateLhs,Conjuga
           // The following piece of code won't work for 512 bit registers
           // Moreover, if LhsProgress==8 it assumes that there is a half packet of the same size
           // as nr (which is currently 4) for the return type.
-          typedef typename unpacket_traits<SResPacket>::half SResPacketHalf;
+          const int SResPacketHalfSize = unpacket_traits<typename unpacket_traits<SResPacket>::half>::size;
           if ((SwappedTraits::LhsProgress % 4) == 0 &&
               (SwappedTraits::LhsProgress <= 8) &&
-              (SwappedTraits::LhsProgress!=8 || unpacket_traits<SResPacketHalf>::size==nr))
+              (SwappedTraits::LhsProgress!=8 || SResPacketHalfSize==nr))
           {
             SAccPacket C0, C1, C2, C3;
             straits.initAcc(C0);

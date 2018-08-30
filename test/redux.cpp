@@ -16,7 +16,6 @@
 
 template<typename MatrixType> void matrixRedux(const MatrixType& m)
 {
-  typedef typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef typename MatrixType::RealScalar RealScalar;
 
@@ -81,7 +80,6 @@ template<typename MatrixType> void matrixRedux(const MatrixType& m)
 template<typename VectorType> void vectorRedux(const VectorType& w)
 {
   using std::abs;
-  typedef typename VectorType::Index Index;
   typedef typename VectorType::Scalar Scalar;
   typedef typename NumTraits<Scalar>::Real RealScalar;
   Index size = w.size();
@@ -148,7 +146,7 @@ template<typename VectorType> void vectorRedux(const VectorType& w)
   VERIFY_RAISES_ASSERT(v.head(0).maxCoeff());
 }
 
-void test_redux()
+EIGEN_DECLARE_TEST(redux)
 {
   // the max size cannot be too large, otherwise reduxion operations obviously generate large errors.
   int maxsize = (std::min)(100,EIGEN_TEST_MAX_SIZE);

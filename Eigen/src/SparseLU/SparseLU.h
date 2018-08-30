@@ -499,10 +499,7 @@ void SparseLU<MatrixType, OrderingType>::factorize(const MatrixType& matrix)
   eigen_assert(m_analysisIsOk && "analyzePattern() should be called first"); 
   eigen_assert((matrix.rows() == matrix.cols()) && "Only for squared matrices");
   
-  typedef typename IndexVector::Scalar StorageIndex; 
-  
   m_isInitialized = true;
-  
   
   // Apply the column permutation computed in analyzepattern()
   //   m_mat = matrix * m_perm_c.inverse(); 
@@ -706,8 +703,8 @@ struct SparseLUMatrixLReturnType : internal::no_assignment_operator
   typedef typename MappedSupernodalType::Scalar Scalar;
   explicit SparseLUMatrixLReturnType(const MappedSupernodalType& mapL) : m_mapL(mapL)
   { }
-  Index rows() { return m_mapL.rows(); }
-  Index cols() { return m_mapL.cols(); }
+  Index rows() const { return m_mapL.rows(); }
+  Index cols() const { return m_mapL.cols(); }
   template<typename Dest>
   void solveInPlace( MatrixBase<Dest> &X) const
   {
@@ -723,8 +720,8 @@ struct SparseLUMatrixUReturnType : internal::no_assignment_operator
   SparseLUMatrixUReturnType(const MatrixLType& mapL, const MatrixUType& mapU)
   : m_mapL(mapL),m_mapU(mapU)
   { }
-  Index rows() { return m_mapL.rows(); }
-  Index cols() { return m_mapL.cols(); }
+  Index rows() const { return m_mapL.rows(); }
+  Index cols() const { return m_mapL.cols(); }
 
   template<typename Dest>   void solveInPlace(MatrixBase<Dest> &X) const
   {

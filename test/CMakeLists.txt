@@ -1,16 +1,7 @@
-# generate split test header file only if it does not yet exist
-# in order to prevent a rebuild every time cmake is configured
-if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/split_test_helper.h)  
-  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/split_test_helper.h "")
-  foreach(i RANGE 1 999)
-    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/split_test_helper.h
-      "#ifdef EIGEN_TEST_PART_${i}\n"
-      "#define CALL_SUBTEST_${i}(FUNC) CALL_SUBTEST(FUNC)\n"
-      "#else\n"
-      "#define CALL_SUBTEST_${i}(FUNC)\n"
-      "#endif\n\n"
-    )
-  endforeach()
+# The file split_test_helper.h was generated at first run,
+# it is now included in test/
+if(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/split_test_helper.h)
+  file(REMOVE ${CMAKE_CURRENT_BINARY_DIR}/split_test_helper.h)
 endif()
 
 # check if we have a Fortran compiler
@@ -396,16 +387,56 @@ if(CUDA_FOUND)
   if(EIGEN_TEST_CUDA_CLANG)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 --cuda-gpu-arch=sm_30")
   endif()
-  cuda_include_directories(${CMAKE_CURRENT_BINARY_DIR})
   set(EIGEN_ADD_TEST_FILENAME_EXTENSION  "cu")
   
-  ei_add_test(cuda_basic)
+  ei_add_test(gpu_basic)
   
   unset(EIGEN_ADD_TEST_FILENAME_EXTENSION)
 
 endif(CUDA_FOUND)
 
 endif(EIGEN_TEST_CUDA)
+
+
+# HIP unit tests
+option(EIGEN_TEST_HIP "Add HIP support." OFF)
+if (EIGEN_TEST_HIP)
+
+  set(HIP_PATH "/opt/rocm/hip" CACHE STRING "Path to the HIP installation.")
+
+  if (EXISTS ${HIP_PATH})
+    
+    list(APPEND CMAKE_MODULE_PATH ${HIP_PATH}/cmake) 
+
+    find_package(HIP REQUIRED)
+    if (HIP_FOUND)
+
+      execute_process(COMMAND ${HIP_PATH}/bin/hipconfig --platform OUTPUT_VARIABLE HIP_PLATFORM)
+
+      if (${HIP_PLATFORM} STREQUAL "hcc")
+
+	include_directories(${HIP_PATH}/include)
+
+	set(EIGEN_ADD_TEST_FILENAME_EXTENSION  "cu")
+	ei_add_test(gpu_basic)
+	unset(EIGEN_ADD_TEST_FILENAME_EXTENSION)
+	
+      elseif (${HIP_PLATFORM} STREQUAL "nvcc")
+	message(FATAL_ERROR "HIP_PLATFORM = nvcc is not supported within Eigen")
+      else ()
+	message(FATAL_ERROR "Unknown HIP_PLATFORM = ${HIP_PLATFORM}")
+      endif()
+      
+    endif(HIP_FOUND)
+    
+  else ()
+
+    message(FATAL_ERROR "EIGEN_TEST_HIP is ON, but the specified HIP_PATH (${HIP_PATH}) does not exist")
+    
+  endif()
+    
+endif(EIGEN_TEST_HIP)
+
 
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/failtests)    

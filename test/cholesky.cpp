@@ -57,7 +57,6 @@ template<typename MatrixType,template <typename,int> class CholType> void test_c
 
 template<typename MatrixType> void cholesky(const MatrixType& m)
 {
-  typedef typename MatrixType::Index Index;
   /* this test covers the following files:
      LLT.h LDLT.h
   */
@@ -289,8 +288,6 @@ template<typename MatrixType> void cholesky_cplx(const MatrixType& m)
 
   // test mixing real/scalar types
 
-  typedef typename MatrixType::Index Index;
-
   Index rows = m.rows();
   Index cols = m.cols();
 
@@ -491,7 +488,7 @@ template<typename MatrixType> void cholesky_verify_assert()
   VERIFY_RAISES_ASSERT(ldlt.solveInPlace(&tmp))
 }
 
-void test_cholesky()
+EIGEN_DECLARE_TEST(cholesky)
 {
   int s = 0;
   for(int i = 0; i < g_repeat; i++) {

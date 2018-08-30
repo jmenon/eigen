@@ -61,8 +61,8 @@ class TensorShufflingOp : public TensorBase<TensorShufflingOp<Shuffle, XprType> 
   typedef typename Eigen::internal::traits<TensorShufflingOp>::StorageKind StorageKind;
   typedef typename Eigen::internal::traits<TensorShufflingOp>::Index Index;
 
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE TensorShufflingOp(const XprType& expr, const Shuffle& shuffle)
-      : m_xpr(expr), m_shuffle(shuffle) {}
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE TensorShufflingOp(const XprType& expr, const Shuffle& shfl)
+      : m_xpr(expr), m_shuffle(shfl) {}
 
     EIGEN_DEVICE_FUNC
     const Shuffle& shufflePermutation() const { return m_shuffle; }
@@ -107,11 +107,12 @@ struct TensorEvaluator<const TensorShufflingOp<Shuffle, ArgType>, Device>
   typedef typename XprType::Scalar Scalar;
   typedef typename XprType::CoeffReturnType CoeffReturnType;
   typedef typename PacketType<CoeffReturnType, Device>::type PacketReturnType;
-  static const int PacketSize = internal::unpacket_traits<PacketReturnType>::size;
+  static const int PacketSize = PacketType<CoeffReturnType, Device>::size;
 
   enum {
     IsAligned = false,
-    PacketAccess = (internal::packet_traits<Scalar>::size > 1),
+    PacketAccess = (PacketType<CoeffReturnType, Device>::size > 1),
+    BlockAccess = false,
     Layout = TensorEvaluator<ArgType, Device>::Layout,
     CoordAccess = false,  // to be implemented
     RawAccess = false
@@ -235,11 +236,12 @@ struct TensorEvaluator<TensorShufflingOp<Shuffle, ArgType>, Device>
   typedef typename XprType::Scalar Scalar;
   typedef typename XprType::CoeffReturnType CoeffReturnType;
   typedef typename PacketType<CoeffReturnType, Device>::type PacketReturnType;
-  static const int PacketSize = internal::unpacket_traits<PacketReturnType>::size;
+  static const int PacketSize = PacketType<CoeffReturnType, Device>::size;
 
   enum {
     IsAligned = false,
-    PacketAccess = (internal::packet_traits<Scalar>::size > 1),
+    PacketAccess = (PacketType<CoeffReturnType, Device>::size > 1),
+    BlockAccess = false,
     RawAccess = false
   };
 

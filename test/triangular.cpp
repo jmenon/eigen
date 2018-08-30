@@ -19,8 +19,8 @@ template<typename MatrixType> void triangular_square(const MatrixType& m)
 
   RealScalar largerEps = 10*test_precision<RealScalar>();
 
-  typename MatrixType::Index rows = m.rows();
-  typename MatrixType::Index cols = m.cols();
+  Index rows = m.rows();
+  Index cols = m.cols();
 
   MatrixType m1 = MatrixType::Random(rows, cols),
              m2 = MatrixType::Random(rows, cols),
@@ -134,7 +134,6 @@ template<typename MatrixType> void triangular_square(const MatrixType& m)
 
 template<typename MatrixType> void triangular_rect(const MatrixType& m)
 {
-  typedef const typename MatrixType::Index Index;
   typedef typename MatrixType::Scalar Scalar;
   typedef typename NumTraits<Scalar>::Real RealScalar;
   enum { Rows =  MatrixType::RowsAtCompileTime, Cols =  MatrixType::ColsAtCompileTime };
@@ -221,7 +220,7 @@ void bug_159()
   EIGEN_UNUSED_VARIABLE(m)
 }
 
-void test_triangular()
+EIGEN_DECLARE_TEST(triangular)
 {
   int maxsize = (std::min)(EIGEN_TEST_MAX_SIZE,20);
   for(int i = 0; i < g_repeat ; i++)

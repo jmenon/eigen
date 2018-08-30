@@ -20,7 +20,7 @@ namespace internal {
 template <typename Scalar>
 struct scalar_mod_op {
   EIGEN_DEVICE_FUNC scalar_mod_op(const Scalar& divisor) : m_divisor(divisor) {}
-  EIGEN_DEVICE_FUNC inline Scalar operator() (const Scalar& a) const { return a % m_divisor; }
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE Scalar operator() (const Scalar& a) const { return a % m_divisor; }
   const Scalar m_divisor;
 };
 template <typename Scalar>
@@ -34,7 +34,7 @@ struct functor_traits<scalar_mod_op<Scalar> >
 template <typename Scalar>
 struct scalar_mod2_op {
   EIGEN_EMPTY_STRUCT_CTOR(scalar_mod2_op)
-  EIGEN_DEVICE_FUNC inline Scalar operator() (const Scalar& a, const Scalar& b) const { return a % b; }
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE Scalar operator() (const Scalar& a, const Scalar& b) const { return a % b; }
 };
 template <typename Scalar>
 struct functor_traits<scalar_mod2_op<Scalar> >
@@ -53,36 +53,6 @@ struct functor_traits<scalar_fmod_op<Scalar> > {
   enum { Cost = 13,  // Reciprocal throughput of FPREM on Haswell.
          PacketAccess = false };
 };
-
-
-/** \internal
-  * \brief Template functor to compute the sigmoid of a scalar
-  * \sa class CwiseUnaryOp, ArrayBase::sigmoid()
-  */
-template <typename T>
-struct scalar_sigmoid_op {
-  EIGEN_EMPTY_STRUCT_CTOR(scalar_sigmoid_op)
-  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE T operator()(const T& x) const {
-    const T one = T(1);
-    return one / (one + numext::exp(-x));
-  }
-
-  template <typename Packet> EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE
-  Packet packetOp(const Packet& x) const {
-    const Packet one = pset1<Packet>(T(1));
-    return pdiv(one, padd(one, pexp(pnegate(x))));
-  }
-};
-
-template <typename T>
-struct functor_traits<scalar_sigmoid_op<T> > {
-  enum {
-    Cost = NumTraits<T>::AddCost * 2 + NumTraits<T>::MulCost * 6,
-    PacketAccess = packet_traits<T>::HasAdd && packet_traits<T>::HasDiv &&
-                   packet_traits<T>::HasNegate && packet_traits<T>::HasExp
-  };
-};
-
 
 template<typename Reducer, typename Device>
 struct reducer_traits {
@@ -140,7 +110,7 @@ struct reducer_traits<SumReducer<T>, Device> {
 
 template <typename T> struct MeanReducer
 {
-  static const bool PacketAccess = packet_traits<T>::HasAdd && !NumTraits<T>::IsInteger;
+  static const bool PacketAccess = packet_traits<T>::HasAdd && packet_traits<T>::HasDiv && !NumTraits<T>::IsInteger;
   static const bool IsStateful = true;
 
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE
@@ -171,7 +141,7 @@ template <typename T> struct MeanReducer
   }
   template <typename Packet>
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE Packet finalizePacket(const Packet& vaccum) const {
-    return pdiv(vaccum, pset1<Packet>(packetCount_));
+    return pdiv(vaccum, pset1<Packet>(T(packetCount_)));
   }
   template <typename Packet>
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE T finalizeBoth(const T saccum, const Packet& vaccum) const {
